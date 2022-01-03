@@ -6,6 +6,7 @@ from jupyterthemes import jtplot
 jtplot.style()
 sns.set_context("notebook", font_scale=1.5)
 from scipy.interpolate import griddata
+from scipy.optimize import fsolve
 
 '''
 -------------------------------------------------From NB 1--------------------------------------------------------------
@@ -94,3 +95,62 @@ def get_profile(line, num=1000):
     x = np.linspace(0, L, num)  # The distance from main line
     altitude = interpolate_altitude(xy_line).flatten()
     return np.c_[x,altitude]
+
+'''
+-------------------------------------------------From NB 3--------------------------------------------------------------
+
+See documentation in NB3
+'''
+
+class DripLineEstimator():
+    def __init__(self, L_space=0.4, D=0.016, C=140, a=0.999, x=0.478):
+        self.L_space = L_space
+        self.D = D  # [m]
+        self.C = C
+        self.alpha = 1.852
+        self.beta = 4.87
+        self.a = a
+        self.x = x
+
+    def drip_flow(self, pressure):  # Getting the pressure in [m]
+        pressure = pressure * (9800 / 1e5)  # [bar]
+        flow = self.a * pressure ** self.x  # [l/h]
+        return flow / (1000 * 3600)  # [m^3/s]
+
+    def run(self,P_terminal_guess):
+        self.P_line = np.array([P_terminal_guess])
+        self.Q_line = np.array([])
+
+        for i in np.arange(-1, -len(self.x_points), -1):
+            z = self.z_points[i]
+            z_pre = self.z_points[i - 1]
+            q = self.drip_flow(self.P_line[-1])
+            self.Q_line = np.append(self.Q_line, q)
+            hf = self.L_space * ((np.sum(self.Q_line) / self.C) ** self.alpha) * (10.67 / (self.D ** self.beta))
+            self.P_line = np.append(self.P_line, hf + self.P_line[-1] + z - z_pre)
+
+        # Reversing the order
+        self.P_line = self.P_line[::-1]
+        self.Q_line = self.Q_line[::-1]
+
+        # Seperating the main line pressure from the drip line
+        self.P_main_line = self.P_line[0]
+        self.P_line = self.P_line[1:]
+
+        return self.P_line, self.Q_line, self.P_main_line
+
+    def objective(self, variable):
+        P_terminal_guess = variable[0]
+        _, _, P_main_line = self.run(P_terminal_guess)
+        return P_main_line - self.P_main_line_value
+
+    def estimate(self, P_main_line_value, x_main_line, x_emitters, z_main_line, z_emitters):
+        self.P_main_line_value = P_main_line_value
+        self.x_points = np.append(x_main_line, x_emitters)
+        self.z_points = np.append(z_main_line, z_emitters)
+
+        # Finding the right terminal value
+        P_terminal_value = fsolve(self.objective, P_main_line_value)[0]
+
+        # Returning all of the pressures and flows values for the drip line
+        return self.run(P_terminal_value)
