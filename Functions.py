@@ -7,10 +7,12 @@ jtplot.style()
 sns.set_context("notebook", font_scale=1.5)
 from scipy.interpolate import griddata
 
+'''
+-------------------------------------------------From NB 1--------------------------------------------------------------
 
+See documentation in NB1
 '''
-All of the documentation is in notebook of week 2
-'''
+
 valued_z = []
 valued_xy = []
 for contour_value in [160, 165, 170, 175]:
@@ -54,3 +56,41 @@ def plot_map(is_contour_lines=True, is_boundary=True):
     axis.set_aspect('equal', 'box')
     plt.ylim(794100, 794450)
     plt.xlim(259775, 260150)
+
+'''
+-------------------------------------------------From NB 2--------------------------------------------------------------
+
+See documentation in NB2
+'''
+def calculate_distance(line):
+    return np.sqrt(np.sum((line[1] - line[0]) ** 2))
+
+def calculate_coor_slope(line):
+    return (line[1][1] - line[0][1])/(line[1][0] - line[0][0])
+
+def calculate_line_point_from(r,line):
+    result = np.array([])
+    for i in [0,1]:
+        x1 = line[i][0]
+        y1 = line[i][1]
+        D = 6 * r
+        m = calculate_coor_slope(line_0)
+        b = y1 - np.sqrt(D ** 2 / (1 + m ** 2))
+        a = x1 - m * (b - y1)
+        result = np.append(result, np.array([a,b]))
+    return result.reshape(2,2)
+
+def import_lines():
+    return np.load('LinesData/lines.npy')
+
+def import_main_line():
+    return np.load('LinesData/main_line.npy')
+
+def get_profile(line, num=1000):
+    x_line = np.linspace(line[0, 0], line[1, 0], num)
+    y_line = np.linspace(line[0, 1], line[1, 1], num)
+    xy_line = np.c_[x_line, y_line]
+    L = calculate_distance(line)
+    x = np.linspace(0, L, num)  # The distance from main line
+    altitude = interpolate_altitude(xy_line).flatten()
+    return np.c_[x,altitude]
