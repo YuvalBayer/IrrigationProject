@@ -69,18 +69,6 @@ def calculate_distance(line):
 def calculate_coor_slope(line):
     return (line[1][1] - line[0][1])/(line[1][0] - line[0][0])
 
-def calculate_line_point_from(r,line):
-    result = np.array([])
-    for i in [0,1]:
-        x1 = line[i][0]
-        y1 = line[i][1]
-        D = 6 * r
-        m = calculate_coor_slope(line_0)
-        b = y1 - np.sqrt(D ** 2 / (1 + m ** 2))
-        a = x1 - m * (b - y1)
-        result = np.append(result, np.array([a,b]))
-    return result.reshape(2,2)
-
 def import_lines():
     return np.load('LinesData/lines.npy')
 
@@ -154,3 +142,121 @@ class DripLineEstimator():
 
         # Returning all of the pressures and flows values for the drip line
         return self.run(P_terminal_value)
+
+
+
+'''
+-------------------------------------------------From NB 4--------------------------------------------------------------
+
+See documentation in NB4
+'''
+
+
+class System():
+    def __init__(self, lines, C_main, D_main, C_drip, D_drip, space_drip, a, x):
+        self.lines = lines
+
+        self.C_main = C_main
+        self.D_main = D_main  # [m] Note that D is an array, so it can varies when we combine diameters
+        self.C_drip = C_drip
+        self.D_drip = D_drip
+        self.a = a
+        self.x = x
+        self.space_drip = space_drip
+        self.alpha = 1.852
+        self.beta = 4.87
+
+    def estimate_line(self, line, main_line_pressure):
+        # Drip line estimator
+        est = DripLineEstimator(self.space_drip, self.D_drip, self.C_drip, self.a, self.x)
+
+        # Profile of the drip line
+        profile = get_profile(line, 1000)
+        x = profile[:, 0].flatten()  # Distance from main line
+        zx = profile[:, 1].flatten()  # Altitude
+
+        L = calculate_distance(line)  # Drip line length
+
+        # Two options for the last x_emmiter value
+        last_value = [66, 24.8][np.argmin(np.absolute((np.array([66, 25]) - L)))]
+
+        # Adding the closest location of the emitter
+        x_emitters = np.arange(0.4, last_value + 0.4, 0.4)
+        i = []
+        for e in x_emitters:
+            i.append(np.argmin(np.absolute(e - x.flatten())))
+
+        x_emitters = x[i]  # All of the emitter x values (distance from main line)
+        z_emitters = zx[i]  # All of the emitter z values (altitude)
+
+        x_main_line = x[0]  # Main line distance from main line = 0 (it's necessary for later calculations)
+        z_main_line = zx[0]  # Main line altitude (in the connection to the drip line)
+
+        # Estimating all of the emitters pressure and flow, and the main line pressure.
+        P_line, Q_line, P_main_line = est.estimate(main_line_pressure, x_main_line, x_emitters, z_main_line, z_emitters)
+
+        return P_line, Q_line
+
+    def run(self,P_terminal_guess):
+        self.P_main = np.array([P_terminal_guess])
+        self.Q_main = np.array([])
+        self.L_main = np.array([])
+        self.Z_main = np.array([])
+        self.q_emitters = []
+        self.p_emitters = []
+        # Running all line from the last to first (excluding the first line)
+        for i in np.arange(-1, -len(self.lines), -1):
+            # Calculating all of the drip line's emitters flow and pressure,
+            # using the main line pressure - P_main[-1]
+            P_dripline, Q_dripline = self.estimate_line(self.lines[i].reshape(2, 2), self.P_main[-1])
+
+            # Saving the drip line data
+            self.q_emitters.append(Q_dripline)
+            self.p_emitters.append(P_dripline)
+
+            # Adding the whole drip line flow to the main line data
+            self.Q_main = np.append(self.Q_main, np.sum(Q_dripline))
+
+            # Current (N) and previous (N-1) connection points
+            cur_point = self.lines[i].reshape(2, 2)[0]
+            pre_point = self.lines[i - 1].reshape(2, 2)[0]
+
+            # Calculating the distance to the previous point
+            section_L = np.concatenate((cur_point, pre_point))
+            self.L_main = np.append(self.L_main, calculate_distance(section_L.reshape(2, 2)))
+
+            # Calculating the altitude for the current point and the previous (N-1)
+            z = interpolate_altitude(cur_point)[0]
+            z_pre = interpolate_altitude(pre_point)[0]
+
+            # Adding main line altitude to data
+            self.Z_main = np.append(self.Z_main, z)
+
+            hf = self.L_main[-1] * ((np.sum(self.Q_main) / self.C_main) ** self.alpha) * (10.67 / (self.D_main[i] ** self.beta))
+            self.P_main = np.append(self.P_main, hf + self.P_main[-1] + z - z_pre)
+
+        # Adding the first drip line to the rest of the data:
+        P_dripline, Q_dripline = self.estimate_line(self.lines[0].reshape(2, 2), self.P_main[-1])
+        self.q_emitters.append(Q_dripline)
+        self.p_emitters.append(P_dripline)
+        self.Z_main = np.append(self.Z_main, z_pre)  # The first connection point altitude
+        self.Q_main = np.append(self.Q_main, np.sum(Q_dripline))  # The first drip line whole flow
+        # Reversing all results
+        self.x_main = np.append(0, np.cumsum(self.L_main[::-1]))  # The distance of all conection points from the top
+        self.P_main = self.P_main[::-1]
+        self.Q_main = self.Q_main[::-1]
+        self.Z_main = self.Z_main[::-1]
+
+    def objective(self, variable):
+        P_terminal_guess = variable[0]
+        self.run(P_terminal_guess)
+        return self.P_main[0] - self.P_main_init
+
+    def estimate(self, P_main_init):
+        self.P_main_init = P_main_init
+
+        # Finding the right terminal value using the initial pressure value as the guess
+        P_main_terminal = fsolve(self.objective, self.P_main_init)[0]
+
+        # Running with the right terminal value
+        self.run(P_main_terminal)
