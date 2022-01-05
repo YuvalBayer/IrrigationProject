@@ -75,7 +75,8 @@ def plot_map(is_contour_lines=True, is_boundary=True):
     plt.tight_layout()
     axis.set_aspect('equal', 'box')
     plt.ylim(794100, 794450)
-    plt.xlim(259775, 260150)
+    plt.xlim(259890, 260020)
+    plt.xticks(ticks=[259900,260000], labels=[259900,260000])
 
 '''
 -------------------------------------------------From NB 2--------------------------------------------------------------
