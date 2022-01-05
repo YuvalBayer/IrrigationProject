@@ -6,9 +6,6 @@ import seaborn as sns
 from scipy.interpolate import griddata
 from scipy.optimize import fsolve
 
-from jupyterthemes import jtplot
-jtplot.style()
-
 sns.set_context("notebook", font_scale=1.5)
 
 
