@@ -56,7 +56,7 @@ def plot_map(is_contour_lines=True, is_boundary=True):
     :param is_boundary: True for plotting thick boundaries of the field
     '''
     fig, axis = plt.subplots(figsize=(15, 8))
-    cs_contourf = plt.contourf(x, y, altitude, 1000, cmap='afmhot_r', vmax=190)
+    cs_contourf = plt.contourf(x, y, altitude, 1000, cmap='afmhot_r',vmin=158, vmax=190)
     if is_contour_lines:
         clabel = plt.contour(x, y, altitude, [165, 167.5, 170, 172.5],
                              colors='red',
