@@ -426,7 +426,7 @@ class System():
         axes[2].plot(self.x_main, self.Z_main)
         axes[2].set_ylabel('Z [m]')
         axes[2].set_xlabel('X [m]')
-    def plot_emitters(self, which_data):
+    def plot_emitters(self, which_data,vmin,vmax):
         '''
         Plotting the spatial emitters data
 
@@ -436,8 +436,7 @@ class System():
         data = {'q': self.q_emitters, 'p': self.p_emitters}[which_data]
         color = {'q': 'Blues', 'p': 'Reds'}[which_data]
         ylabel = {'q': 'Flow [l/h]', 'p': 'Pressure [bars]'}[which_data]
-        vmin = np.nanmin(data.values) * 0.9
-        vmax = np.nanmax(data.values)
+
 
         plot_map(False, False)  # Plotting map
         plt.grid(b=False)
