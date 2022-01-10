@@ -458,5 +458,4 @@ class System():
         data_min = np.nanmin(data.values)
         data_max = np.nanmax(data.values)
         maximum_deviation = (data_max - data_min) / data_max * 100
-        plt.scatter([], [], c='white', label='Maximum deviation: {:.2f}%'.format(maximum_deviation))
-        plt.legend()
+        plt.text(259895,794433,'Max Dev: {:.2f}%'.format(maximum_deviation))
