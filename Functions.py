@@ -278,9 +278,9 @@ class System():
         '''
         Estimating a drip line flow and pressure
 
-        :param line:
+        :param line: starting and end point of the drip line as 2X2 array
         :param main_line_pressure: The pressure at the connection point of the drip line to the main line
-        :return: All of the emitters pressure and flow (in [m] and [m^3/s] respectively)
+        :return: All of the emitters pressure and flow (in [m] and [m^3/s] respectively) using the drip estimator
         '''
         # Drip line estimator
         est = DripLineEstimator(self.space_drip, self.D_drip, self.C_drip, self.a, self.x)
@@ -430,7 +430,10 @@ class System():
         '''
         Plotting the spatial emitters data
 
+
         :param which_data: 'p' for plotting pressure and 'q' for plotting flow
+        :param vmin: min limit values for color value for plotting
+        :param vmax: max limit value for color value for plotting
         :return:
         '''
         data = {'q': self.q_emitters, 'p': self.p_emitters}[which_data]
